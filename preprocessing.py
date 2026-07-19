@@ -52,6 +52,7 @@ def clean_tweet(text):
     tokens = word_tokenize(text)
     
     # lemmatize and ditch stop words
+    cleaned_tokens = [
         lemmatizer.lemmatize(token) 
         for token in tokens 
         if token not in stop_words and len(token) > 1
