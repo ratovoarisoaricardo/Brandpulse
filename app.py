@@ -294,7 +294,7 @@ with tab1:
                         plot_bgcolor='rgba(0,0,0,0)',
                         font=dict(color="white")
                     )
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                    st.plotly_chart(fig_bar, width="stretch")
         else:
             st.warning("Please enter some text to analyze.")
 
@@ -375,12 +375,12 @@ with tab2:
             font=dict(color="white"),
             legend=dict(orientation="h", y=0)
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width="stretch")
         
     with col_chart2:
         st.write("**Trend over Time (Last 24 Hours)**")
         # group by hours
-        df_hist['hour'] = pd.to_datetime(df_hist['timestamp']).dt.floor('H')
+        df_hist['hour'] = pd.to_datetime(df_hist['timestamp']).dt.floor('h')
         trend_df = df_hist.groupby(['hour', 'sentiment']).size().reset_index(name='count')
         
         fig_trend = px.line(
@@ -400,7 +400,7 @@ with tab2:
             yaxis=dict(showgrid=True, gridcolor='#374151'),
             legend=dict(orientation="h", y=1.1)
         )
-        st.plotly_chart(fig_trend, use_container_width=True)
+        st.plotly_chart(fig_trend, width="stretch")
 
     # display recent tweets
     st.markdown("### Recent Tweets Feed")
