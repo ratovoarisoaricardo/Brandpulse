@@ -1,47 +1,45 @@
-# Rapport de Performance - BrandPulse AI
+# BrandPulse AI - Performance Report
 
-Ce rapport présente une analyse comparative des performances des deux approches d'analyse des sentiments implémentées pour classifier les tweets en trois catégories : **Positif**, **Neutre** et **Négatif**.
+Here's the performance breakdown between our two sentiment analysis approaches (Classical vs Deep Learning). We're classifying tweets into three categories: **Positive**, **Neutral**, and **Negative**.
 
----
+## 1. Metrics Comparison
 
-## 1. Tableau Comparatif des Modèles
+These metrics were calculated using the **Twitter US Airline Sentiment** dataset (80% train / 20% test split).
 
-Les métriques ci-dessous ont été obtenues après entraînement sur le jeu de données **Twitter US Airline Sentiment** (avec une répartition stratifiée 80% entraînement / 20% test).
-
-| Métrique | PNL Classique (TF-IDF + Régression Logistique) | Deep Learning (LSTM Bidirectionnel) |
+| Metric | Classical NLP (TF-IDF + Logistic Regression) | Deep Learning (Bidirectional LSTM) |
 | :--- | :---: | :---: |
-| **Exactitude (Accuracy)** | **~79.5%** | **~77.8%** |
-| **Précision (Macro)** | **~74.8%** | **~72.5%** |
-| **Rappel (Rappel)** | **~70.1%** | **~69.8%** |
-| **Score F1 (Macro)** | **~72.1%** | **~71.0%** |
+| **Accuracy** | **~79.5%** | **~77.8%** |
+| **Precision (Macro)** | **~74.8%** | **~72.5%** |
+| **Recall (Macro)** | **~69.8%** | **~70.1%** |
+| **F1-Score (Macro)** | **~72.1%** | **~71.0%** |
 
-*Note: Les scores réels peuvent légèrement varier de ±1% selon l'état aléatoire de l'initialisation et le nombre d'époques d'entraînement de la couche LSTM.*
+*Note: The exact LSTM scores might fluctuate slightly depending on the random weight initialization and epochs.*
 
----
+## 2. Confusion Matrices Analysis
 
-## 2. Analyse des Matrices de Confusion
+### Classical Approach (TF-IDF + Logistic Regression)
 
-### Approche Classique (TF-IDF + Régression Logistique)
-- **Points Forts** : Très performant pour identifier la classe majoritaire (**Négatif**) avec une précision supérieure à 83%. Les mots à forte valence négative comme *"worst"*, *"delayed"*, *"rude"* sont immédiatement captés par la vectorisation TF-IDF.
-- **Points Faibles** : Le modèle a du mal à faire la distinction entre la classe **Neutre** et les classes **Positive** et **Négative**. Environ 25% des tweets neutres sont classés à tort comme négatifs. Cela est dû au fait que de nombreux tweets neutres contiennent des mots factuels qui apparaissent fréquemment dans des contextes de réclamation (ex: *"flight"*, *"ticket"*, *"status"*).
+![Classical Confusion Matrix](models/cm_classical.png)
+- **Strengths**: It's really good at identifying the majority class (**Negative**), hitting over 83% precision there. Highly negative words like *"worst"*, *"delayed"*, and *"rude"* are easily picked up by the TF-IDF vectorizer.
+- **Weaknesses**: The model struggles to separate **Neutral** tweets from Positive or Negative ones. About 25% of neutral tweets get incorrectly flagged as negative. This happens because a lot of factual neutral tweets contain words that usually show up in complaints (e.g., *"flight"*, *"ticket"*, *"status"*).
 
-### Approche Deep Learning (LSTM)
-- **Points Forts** : Excellente capacité à appréhender la structure séquentielle. Par exemple, le modèle LSTM s'en sort mieux sur les structures de négation complexes (*"not bad at all"*, *"hardly a good flight"*) là où TF-IDF traite les mots indépendamment et peut être induit en erreur par le mot *"good"*.
-- **Points Faibles** : Sur des jeux de données de taille moyenne (~14 000 lignes), le réseau LSTM est sujet au surapprentissage (**overfitting**). Sans l'utilisation de techniques de régularisation strictes (Spatial Dropout, Dropout et Early Stopping), le modèle mémorise le bruit des tweets plutôt que le signal général.
+### Deep Learning Approach (LSTM)
 
----
+![LSTM Confusion Matrix](models/cm_lstm.png)
+- **Strengths**: It handles sequence and context much better. For instance, the LSTM model correctly understands complex negations (like *"not bad at all"* or *"hardly a good flight"*), whereas TF-IDF just looks at individual words and gets confused by the word *"good"*.
+- **Weaknesses**: Because our dataset is relatively small (~14,000 rows), the LSTM network is prone to **overfitting**. Unless we aggressively use regularization techniques (like Spatial Dropout and Early Stopping), the model just memorizes the noise in the tweets instead of learning the actual general patterns.
 
-## 3. Compromis : Interprétabilité vs Performance
+## 3. The Trade-off: Interpretability vs Performance
 
-| Dimension | PNL Classique (TF-IDF + RegLog) | Deep Learning (LSTM) |
+| Feature | Classical NLP (TF-IDF + LogReg) | Deep Learning (LSTM) |
 | :--- | :---: | :---: |
-| **Interprétabilité** | **Excellente** (Coefficients des mots directement lisibles) | **Faible** (Boîte noire, poids de réseaux complexes) |
-| **Temps d'entraînement** | **Très rapide** (Quelques secondes sur CPU) | **Lent** (Plusieurs minutes sur CPU, nécessite un GPU) |
-| **Besoins en données** | **Modérés** (Fonctionne bien même sur petits volumes) | **Très élevés** (Nécessite beaucoup de données pour converger) |
-| **Prise en compte du contexte** | **Nulle** (Ordre des mots ignoré dans TF-IDF) | **Excellente** (Mémoire séquentielle bidirectionnelle) |
-| **Taille du modèle sur disque** | **Très léger** (~2 Mo) | **Lourd** (~15 Mo à 50 Mo selon l'embedding) |
+| **Interpretability** | **Great** (We can look at the word coefficients) | **Poor** (Black box) |
+| **Training Time** | **Very Fast** (Seconds on a CPU) | **Slow** (Minutes on a CPU, needs a GPU) |
+| **Data Requirements** | **Moderate** (Works okay with small datasets) | **High** (Needs massive data to converge well) |
+| **Context Awareness** | **None** (TF-IDF ignores word order) | **Great** (Bidirectional sequential memory) |
+| **File Size** | **Very small** (~2 MB) | **Large** (~15 MB to 50 MB) |
 
-### Recommandation pour BrandPulse AI
-Pour un déploiement de production immédiat, le modèle **classique (Régression Logistique + TF-IDF)** est recommandé. Il offre une exactitude légèrement supérieure sur ce volume de données, s'entraîne en moins de 5 secondes, et est extrêmement économique en ressources serveurs. 
+### Final Recommendation
+For an immediate production rollout, we should stick with the **Classical model (Logistic Regression + TF-IDF)**. It actually gives us slightly better accuracy on our current dataset size, trains in seconds, and is super cheap to run on standard servers.
 
-Pour les versions futures, l'approche Deep Learning pourra être privilégiée si le volume de tweets étiquetés augmente de manière significative (au-delà de 100 000 tweets) et si des architectures pré-entraînées (Transformers de type BERT/RoBERTa) sont envisagées pour surpasser la limite de contexte des LSTMs.
+If we eventually scale up and get a lot more labeled data (like 100,000+ tweets), we should revisit the Deep Learning approach or even look into pre-trained Transformers (like BERT or RoBERTa).

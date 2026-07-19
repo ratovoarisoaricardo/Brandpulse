@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Chargement du style CSS personnalisé pour une esthétique premium
+# load custom css styling
 st.markdown("""
 <style>
     .main {
@@ -78,7 +78,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- CHARGEMENT DES MODÈLES ---
+# cache model loading so it doesn't reload on every UI refresh
 @st.cache_resource
 def load_classical_model():
     model_path = 'models/classical_pipeline.pkl'
@@ -102,12 +102,12 @@ def load_lstm_model():
 classical_model = load_classical_model()
 lstm_resources = load_lstm_model()
 
-# --- MODÈLE HEURISTIQUE DE SECCOURS (Si aucun modèle n'est entraîné) ---
+# basic heuristic fallback in case the models aren't trained yet
 def heuristic_sentiment(text):
     text_lower = text.lower()
-    # Mots clés positifs et négatifs simples
-    pos_words = ['great', 'awesome', 'amazing', 'love', 'good', 'excellent', 'thanks', 'thank', 'best', 'cool', 'super', 'incroyable', 'excellent', 'parfait']
-    neg_words = ['bad', 'worst', 'terrible', 'wait', 'delayed', 'delay', 'cancel', 'canceled', 'hate', 'rude', 'cold', 'slow', 'lost', 'hours', 'late', 'attendu', 'froid', 'nul']
+    
+    pos_words = ['great', 'awesome', 'amazing', 'love', 'good', 'excellent', 'thanks', 'thank', 'best', 'cool', 'super']
+    neg_words = ['bad', 'worst', 'terrible', 'wait', 'delayed', 'delay', 'cancel', 'canceled', 'hate', 'rude', 'cold', 'slow', 'lost', 'hours', 'late']
     
     pos_count = sum(1 for w in pos_words if w in text_lower)
     neg_count = sum(1 for w in neg_words if w in text_lower)
@@ -119,18 +119,19 @@ def heuristic_sentiment(text):
     else:
         return 'neutral', [0.2, 0.6, 0.2]
 
-# --- FONCTION DE PRÉDICTION PRINCIPALE ---
+# main prediction routing
 def predict_sentiment(text, model_type):
     cleaned = clean_tweet(text)
     if not cleaned:
         return 'neutral', [0.33, 0.34, 0.33]
         
-    if model_type == "Régression Logistique (TF-IDF)" and classical_model is not None:
+    if model_type == "Logistic Regression (TF-IDF)" and classical_model is not None:
         probs = classical_model.predict_proba([cleaned])[0]
         classes = classical_model.classes_
         pred_idx = np.argmax(probs)
         pred_label = classes[pred_idx]
-        # Ordonner les probs sous forme [négatif, neutre, positif]
+        
+        # force order: [negative, neutral, positive]
         class_to_idx = {c: i for i, c in enumerate(classes)}
         ordered_probs = [
             probs[class_to_idx.get('negative', 0)],
@@ -150,10 +151,10 @@ def predict_sentiment(text, model_type):
         return classes[pred_idx], list(probs)
         
     else:
-        # Fallback si modèle non présent
+        # fallback if model is missing
         return heuristic_sentiment(text)
 
-# --- POOL DE TWEETS POUR LA SIMULATION ---
+# pool of tweets for the live simulation
 SIMULATED_TWEETS = [
     "Just experienced the best customer service ever! Extremely happy with the quick response. #brandpulse",
     "Flight delayed by 5 hours. No explanation, rude staff, and cold food. Never flying with them again.",
@@ -175,9 +176,9 @@ SIMULATED_TWEETS = [
     "Will they ever fix the boarding system? It's so disorganized."
 ]
 
-# Initialisation de l'état de session pour le flux en direct
+# setup initial session state for the live feed
 if 'tweet_history' not in st.session_state:
-    # Créer un historique initial réaliste sur les 24 dernières heures
+    # create some fake history over the last 24 hours
     history = []
     base_time = datetime.now() - timedelta(hours=24)
     sent_counts = {'positive': 0, 'neutral': 0, 'negative': 0}
@@ -197,95 +198,92 @@ if 'tweet_history' not in st.session_state:
 if 'sim_active' not in st.session_state:
     st.session_state.sim_active = False
 
-# --- HEADER DE L'APPLICATION ---
-st.title("📊 BrandPulse AI — Analyse des Sentiments Twitter")
-st.markdown("Plateforme marketing d'écoute sociale et d'analyse des émotions en temps réel.")
+# app header
+st.title("📊 BrandPulse AI — Twitter Sentiment Analysis")
+st.markdown("Real-time marketing platform for social listening and emotion analysis.")
 
-# --- BARRE LATÉRALE (SIDEBAR) ---
+# sidebar config
 st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3256/3256013.png", width=80)
 st.sidebar.header("Configuration")
 
-# Choix du modèle
 model_option = st.sidebar.selectbox(
-    "Modèle Actif",
-    ("Régression Logistique (TF-IDF)", "LSTM (Deep Learning)")
+    "Active Model",
+    ("Logistic Regression (TF-IDF)", "LSTM (Deep Learning)")
 )
 
-# Indicateurs de statut des modèles
-st.sidebar.markdown("### Statut des modèles")
+# show model statuses
+st.sidebar.markdown("### Model Status")
 if classical_model is not None:
-    st.sidebar.success("✅ Classique (TF-IDF) chargé")
+    st.sidebar.success("✅ Classical (TF-IDF) loaded")
 else:
-    st.sidebar.warning("⚠️ Classique (TF-IDF) non détecté (Mode Secours)")
+    st.sidebar.warning("⚠️ Classical (TF-IDF) not found (Fallback Mode)")
 
 if lstm_resources is not None:
-    st.sidebar.success("✅ LSTM Deep Learning chargé")
+    st.sidebar.success("✅ LSTM Deep Learning loaded")
 else:
-    st.sidebar.warning("⚠️ LSTM non détecté (Mode Secours)")
+    st.sidebar.warning("⚠️ LSTM not found (Fallback Mode)")
 
 st.sidebar.markdown("""
 ---
-**À propos de BrandPulse AI**
-Cette application classe les tweets en trois catégories (positif, neutre, négatif) à l'aide de pipelines NLP classiques ou d'apprentissage profond.
+**About BrandPulse AI**
+This app classifies tweets into three categories (positive, neutral, negative) using classical NLP pipelines or deep learning.
 """)
 
-# --- MISE EN PAGE PRINCIPALE (ONGLETS) ---
-tab1, tab2 = st.tabs(["🔍 Analyse de Texte Unique", "📈 Flux en Direct (Simulation)"])
+# main layout tabs
+tab1, tab2 = st.tabs(["🔍 Single Text Analysis", "📈 Live Feed (Simulation)"])
 
-# --- ONGLET 1 : ANALYSE DE TEXTE UNIQUE ---
 with tab1:
-    st.header("Analyse de sentiment sur demande")
-    st.write("Saisissez un tweet ou un message ci-dessous pour analyser instantanément les émotions qu'il contient.")
+    st.header("On-Demand Sentiment Analysis")
+    st.write("Enter a tweet or message below to instantly analyze its emotion.")
     
-    user_input = st.text_area("Texte du Tweet", placeholder="Saisissez votre tweet ici...", height=100)
+    user_input = st.text_area("Tweet Text", placeholder="Type your tweet here...", height=100)
     
-    # Exemples prédéfinis
-    st.markdown("**Exemples rapides à tester :**")
+    st.markdown("**Quick examples to test:**")
     col_ex1, col_ex2, col_ex3 = st.columns(3)
     with col_ex1:
-        if st.button("Le service était incroyable !"):
-            user_input = "Le service était incroyable !"
+        if st.button("The service was amazing!"):
+            user_input = "The service was amazing!"
     with col_ex2:
-        if st.button("J'ai attendu 4 heures juste pour avoir un hamburger froid."):
-            user_input = "J'ai attendu 4 heures juste pour avoir un hamburger froid."
+        if st.button("I waited 4 hours just to get a cold burger."):
+            user_input = "I waited 4 hours just to get a cold burger."
     with col_ex3:
-        if st.button("Le vol a été retardé, mais l'équipage a été sympathique."):
-            user_input = "Le vol a été retardé, mais l'équipage a été sympathique."
+        if st.button("The flight was delayed, but the crew was friendly."):
+            user_input = "The flight was delayed, but the crew was friendly."
             
-    if st.button("Analyser le Sentiment"):
+    if st.button("Analyze Sentiment"):
         if user_input.strip() != "":
-            with st.spinner("Analyse en cours..."):
+            with st.spinner("Analyzing..."):
                 sentiment, probs = predict_sentiment(user_input, model_option)
                 cleaned_text = clean_tweet(user_input)
                 
-                st.markdown("### Résultats de l'analyse")
+                st.markdown("### Analysis Results")
                 
                 col_res1, col_res2 = st.columns([1, 2])
                 
                 with col_res1:
-                    st.write("**Texte nettoyé (NLP Pipeline) :**")
-                    st.code(cleaned_text if cleaned_text else "[Texte vide après filtrage]")
+                    st.write("**Cleaned Text (NLP Pipeline):**")
+                    st.code(cleaned_text if cleaned_text else "[Empty text after filtering]")
                     
                     if sentiment == 'positive':
-                        st.markdown(f"Sentiment Prédit : <span class='sentiment-positive'>POSITIF</span>", unsafe_allow_html=True)
+                        st.markdown(f"Predicted Sentiment: <span class='sentiment-positive'>POSITIVE</span>", unsafe_allow_html=True)
                     elif sentiment == 'neutral':
-                        st.markdown(f"Sentiment Prédit : <span class='sentiment-neutral'>NEUTRE</span>", unsafe_allow_html=True)
+                        st.markdown(f"Predicted Sentiment: <span class='sentiment-neutral'>NEUTRAL</span>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"Sentiment Prédit : <span class='sentiment-negative'>NÉGATIF</span>", unsafe_allow_html=True)
+                        st.markdown(f"Predicted Sentiment: <span class='sentiment-negative'>NEGATIVE</span>", unsafe_allow_html=True)
                         
                 with col_res2:
-                    st.write("**Probabilités par classe :**")
+                    st.write("**Class Probabilities:**")
                     prob_df = pd.DataFrame({
-                        'Sentiment': ['Négatif', 'Neutre', 'Positif'],
-                        'Confiance': [probs[0], probs[1], probs[2]]
+                        'Sentiment': ['Negative', 'Neutral', 'Positive'],
+                        'Confidence': [probs[0], probs[1], probs[2]]
                     })
                     fig_bar = px.bar(
                         prob_df, 
-                        x='Confiance', 
+                        x='Confidence', 
                         y='Sentiment', 
                         orientation='h',
                         color='Sentiment',
-                        color_discrete_map={'Négatif': '#ef4444', 'Neutre': '#9ca3af', 'Positif': '#10b981'},
+                        color_discrete_map={'Negative': '#ef4444', 'Neutral': '#9ca3af', 'Positive': '#10b981'},
                         text_auto='.1%'
                     )
                     fig_bar.update_layout(
@@ -298,12 +296,11 @@ with tab1:
                     )
                     st.plotly_chart(fig_bar, use_container_width=True)
         else:
-            st.warning("Veuillez saisir du texte pour lancer l'analyse.")
+            st.warning("Please enter some text to analyze.")
 
-# --- ONGLET 2 : FLUX EN DIRECT SIMULÉ ---
 with tab2:
-    st.header("Flux de tweets entrants en temps réel")
-    st.write("Simulez un flux continu de tweets pour analyser l'évolution globale de la réputation de votre marque.")
+    st.header("Real-time Tweet Stream")
+    st.write("Simulate a continuous feed of incoming tweets to monitor overall brand reputation.")
     
     col_ctrl1, col_ctrl2 = st.columns([1, 3])
     with col_ctrl1:
@@ -312,18 +309,18 @@ with tab2:
                 st.session_state.sim_active = False
                 st.rerun()
         else:
-            if st.button("▶️ Démarrer la Simulation"):
+            if st.button("▶️ Start Simulation"):
                 st.session_state.sim_active = True
                 st.rerun()
                 
     with col_ctrl2:
-        st.write(f"Nombre total de tweets analysés : **{len(st.session_state.tweet_history)}**")
+        st.write(f"Total tweets analyzed: **{len(st.session_state.tweet_history)}**")
         
-    # Exécution de la simulation
+    # run the live simulation
     if st.session_state.sim_active:
-        # Simuler un nouveau tweet entrant
+        # simulate incoming tweet
         new_text = random.choice(SIMULATED_TWEETS)
-        # Légère altération pour ajouter de la diversité
+        # add a random hashtag sometimes to vary it up
         if random.random() > 0.6:
             new_text += f" #{random.choice(['airline', 'travel', 'fail', 'happy', 'brand'])}"
         
@@ -335,31 +332,31 @@ with tab2:
             'probs': probs
         })
         
-        # Limiter à 200 tweets dans l'historique pour éviter d'encombrer la mémoire
+        # keep memory footprint low by capping history at 200
         if len(st.session_state.tweet_history) > 200:
             st.session_state.tweet_history.pop(0)
             
-    # Calcul des statistiques sur l'historique
+    # calculate stats
     df_hist = pd.DataFrame(st.session_state.tweet_history)
     counts = df_hist['sentiment'].value_counts()
     
-    # KPIs en haut de page
+    # top KPIs
     col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
     with col_kpi1:
         pos_cnt = counts.get('positive', 0)
-        st.markdown(f"<div class='metric-card'><h3>🟢 Positifs</h3><h2 style='color:#10b981'>{pos_cnt}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><h3>🟢 Positive</h3><h2 style='color:#10b981'>{pos_cnt}</h2></div>", unsafe_allow_html=True)
     with col_kpi2:
         neu_cnt = counts.get('neutral', 0)
-        st.markdown(f"<div class='metric-card'><h3>⚪ Neutres</h3><h2 style='color:#9ca3af'>{neu_cnt}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><h3>⚪ Neutral</h3><h2 style='color:#9ca3af'>{neu_cnt}</h2></div>", unsafe_allow_html=True)
     with col_kpi3:
         neg_cnt = counts.get('negative', 0)
-        st.markdown(f"<div class='metric-card'><h3>🔴 Négatifs</h3><h2 style='color:#ef4444'>{neg_cnt}</h2></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='metric-card'><h3>🔴 Negative</h3><h2 style='color:#ef4444'>{neg_cnt}</h2></div>", unsafe_allow_html=True)
         
-    st.markdown("### Visualisations analytiques")
+    st.markdown("### Analytics Visualizations")
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
-        st.write("**Répartition globale des Sentiments**")
+        st.write("**Global Sentiment Distribution**")
         pie_data = pd.DataFrame({
             'Sentiment': [s.capitalize() for s in counts.index],
             'Total': counts.values
@@ -381,8 +378,8 @@ with tab2:
         st.plotly_chart(fig_pie, use_container_width=True)
         
     with col_chart2:
-        st.write("**Courbe de tendance (24 Dernières Heures)**")
-        # Regrouper par tranches horaires
+        st.write("**Trend over Time (Last 24 Hours)**")
+        # group by hours
         df_hist['hour'] = pd.to_datetime(df_hist['timestamp']).dt.floor('H')
         trend_df = df_hist.groupby(['hour', 'sentiment']).size().reset_index(name='count')
         
@@ -391,7 +388,7 @@ with tab2:
             x='hour', 
             y='count', 
             color='sentiment',
-            labels={'hour': 'Temps', 'count': 'Nombre de Tweets', 'sentiment': 'Sentiment'},
+            labels={'hour': 'Time', 'count': 'Tweet Count', 'sentiment': 'Sentiment'},
             color_discrete_map={'positive': '#10b981', 'neutral': '#9ca3af', 'negative': '#ef4444'},
             markers=True
         )
@@ -405,31 +402,31 @@ with tab2:
         )
         st.plotly_chart(fig_trend, use_container_width=True)
 
-    # Affichage des derniers tweets reçus
-    st.markdown("### Flux de tweets récents")
+    # display recent tweets
+    st.markdown("### Recent Tweets Feed")
     recent_tweets = sorted(st.session_state.tweet_history, key=lambda x: x['timestamp'], reverse=True)[:5]
     
     for item in recent_tweets:
         t_str = pd.to_datetime(item['timestamp']).strftime('%H:%M:%S')
         sent_label = item['sentiment']
         if sent_label == 'positive':
-            sent_tag = "<span class='sentiment-positive'>POSITIF</span>"
+            sent_tag = "<span class='sentiment-positive'>POSITIVE</span>"
         elif sent_label == 'neutral':
-            sent_tag = "<span class='sentiment-neutral'>NEUTRE</span>"
+            sent_tag = "<span class='sentiment-neutral'>NEUTRAL</span>"
         else:
-            sent_tag = "<span class='sentiment-negative'>NÉGATIF</span>"
+            sent_tag = "<span class='sentiment-negative'>NEGATIVE</span>"
             
         st.markdown(f"""
         <div class='tweet-card'>
             <div style='display:flex; justify-content:space-between; margin-bottom:0.5rem;'>
-                <span style='color:#9ca3af; font-size:0.85rem;'>🕒 Reçu à {t_str}</span>
+                <span style='color:#9ca3af; font-size:0.85rem;'>🕒 Received at {t_str}</span>
                 {sent_tag}
             </div>
             <p style='margin:0; font-size:1rem; color:#f3f4f6;'>"{item['text']}"</p>
         </div>
         """, unsafe_allow_html=True)
         
-    # Si la simulation est active, forcer le rafraîchissement toutes les 2 secondes
+    # force refresh every 2 seconds if simulation is running
     if st.session_state.sim_active:
         time.sleep(2)
         st.rerun()

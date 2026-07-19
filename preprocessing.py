@@ -4,7 +4,7 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.tokenize import word_tokenize
 
-# Téléchargement automatique des ressources NLTK requises
+# helper to grab nltk data if missing
 def download_nltk_resources():
     resources = ['stopwords', 'wordnet', 'omw-1.4', 'punkt', 'punkt_tab']
     for res in resources:
@@ -17,49 +17,41 @@ def download_nltk_resources():
             nltk.download(res, quiet=True)
 
 
-# Initialisation des ressources
+# setup nltk resources on import
 download_nltk_resources()
 
-# Configuration du lemmatiseur et des stopwords
+# setup the basic nlp tools
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words('english'))
 
 def clean_tweet(text):
     """
-    Fonction de nettoyage robuste pour les tweets.
-    1. Mise en minuscules.
-    2. Suppression des URLs (http/https).
-    3. Suppression des mentions (@user).
-    4. Suppression du symbole '#' tout en gardant le texte du hashtag.
-    5. Suppression des caractères spéciaux et chiffres (conservation des lettres et espaces).
-    6. Tokenisation.
-    7. Suppression des mots vides (stopwords).
-    8. Lemmatisation.
+    Cleans raw tweets by stripping URLs, mentions, and special chars, 
+    then tokenizes and lemmatizes the words.
     """
     if not isinstance(text, str):
         return ""
     
-    # 1. Mise en minuscules
+    # lowercase everything
     text = text.lower()
     
-    # 2. Suppression des URLs
+    # drop links
     text = re.sub(r"https?://\S+|www\.\S+", "", text)
     
-    # 3. Suppression des mentions (@user)
+    # remove user tags
     text = re.sub(r"@\w+", "", text)
     
-    # 4. Nettoyage des hashtags (supprimer '#' mais garder le mot, ex: #cool -> cool)
+    # keep the hashtag text but drop the '#' symbol itself
     text = re.sub(r"#(\w+)", r"\1", text)
     
-    # 5. Remplacer les sauts de ligne et conserver uniquement les lettres et espaces
+    # filter out weird characters and numbers, just keep letters
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"[^a-zA-Z\s]", "", text)
     
-    # 6. Tokenisation
+    # tokenize
     tokens = word_tokenize(text)
     
-    # 7 & 8. Suppression des stopwords et Lemmatisation
-    cleaned_tokens = [
+    # lemmatize and ditch stop words
         lemmatizer.lemmatize(token) 
         for token in tokens 
         if token not in stop_words and len(token) > 1
