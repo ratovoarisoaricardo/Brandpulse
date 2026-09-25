@@ -1,4 +1,5 @@
 import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import time
 import pickle
 import random
@@ -91,12 +92,16 @@ def load_classical_model():
 def load_lstm_model():
     model_path = 'models/lstm_model.keras'
     tokenizer_path = 'models/tokenizer.pkl'
-    if os.path.exists(model_path) and os.path.exists(tokenizer_path):
-        from tensorflow.keras.models import load_model
-        model = load_model(model_path)
-        with open(tokenizer_path, 'rb') as handle:
-            tokenizer = pickle.load(handle)
-        return model, tokenizer
+    try:
+        if os.path.exists(model_path) and os.path.exists(tokenizer_path):
+            from tensorflow.keras.models import load_model
+            model = load_model(model_path)
+            with open(tokenizer_path, 'rb') as handle:
+                tokenizer = pickle.load(handle)
+            return model, tokenizer
+    except Exception as err:
+        print("Note: TensorFlow/LSTM model load skipped due to environment:", err)
+        return None
     return None
 
 classical_model = load_classical_model()
